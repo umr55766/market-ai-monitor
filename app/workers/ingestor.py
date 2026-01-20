@@ -18,11 +18,6 @@ def run_ingestor():
     
     while True:
         try:
-            # Recovery: Re-queue anything stuck in pending
-            requeued = storage.requeue_pending()
-            if requeued > 0:
-                print(f"Recovered {requeued} pending items.", flush=True)
-
             print("Fetching news...", flush=True)
             headlines = ingestor.fetch_headlines()
             

@@ -16,23 +16,28 @@ def run_relevance_worker():
 
     while True:
         try:
-            task = storage.pop_from_queue("relevance")
-            if not task:
+            tasks = storage.pop_batch_from_queue("relevance", batch_size=5)
+            if not tasks:
+                time.sleep(2)
                 continue
                 
-            headline = task['title']
-            print(f"Analyzing relevance: {headline}", flush=True)
+            headlines = [t['title'] for t in tasks]
+            for h in headlines:
+                storage.save_headline(h, status="analyzing")
+                print(f"Status: ANALYZING - {h}", flush=True)
+
+            print(f"Processing batch of {len(headlines)} relevance checks...", flush=True)
+            results = relevance_filter.is_relevant_batch(headlines)
             
-            storage.save_headline(headline, status="analyzing")
-            is_relevant = relevance_filter.is_relevant(headline)
-            
-            if is_relevant:
-                print(f"✅ Relevant: {headline}", flush=True)
-                storage.save_headline(headline, status="extracting")
-                storage.push_to_queue("extraction", {"title": headline})
-            else:
-                print(f"❌ Ignored: {headline}", flush=True)
-                storage.save_headline(headline, status="ignored")
+            for i, is_relevant in enumerate(results):
+                h = headlines[i]
+                if is_relevant:
+                    storage.save_headline(h, status="extracting")
+                    print(f"Status: EXTRACTING - {h}", flush=True)
+                    storage.push_to_queue("extraction", {"title": h})
+                else:
+                    storage.save_headline(h, status="ignored")
+                    print(f"Status: IGNORED - {h}", flush=True)
                 
         except Exception as e:
             print(f"Relevance Worker Error: {e}", flush=True)

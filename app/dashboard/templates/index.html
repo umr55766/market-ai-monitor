@@ -222,7 +222,12 @@
 <body>
     <div class="container">
         <header>
-            <h1>Market AI Radar</h1>
+            <div style="display: flex; flex-direction: column;">
+                <h1>Market AI Radar</h1>
+                <div id="queue-status" style="font-size: 0.8rem; color: var(--text-dim); margin-top: -5px;">
+                    Queues: <span id="q-relevance">...</span> Analyz. | <span id="q-extraction">...</span> Extr.
+                </div>
+            </div>
             <div class="status-badge">
                 <div class="pulse"></div>
                 LIVE MONITORING
@@ -271,8 +276,18 @@
         // Auto-refresh data every 10 seconds
         async function refreshNews() {
             try {
-                const response = await fetch('/api/news');
-                const news = await response.json();
+                const [newsResponse, statusResponse] = await Promise.all([
+                    fetch('/api/news'),
+                    fetch('/api/status')
+                ]);
+
+                const news = await newsResponse.json();
+                const status = await statusResponse.json();
+
+                // Update queues
+                document.getElementById('q-relevance').innerText = status.queues.relevance;
+                document.getElementById('q-extraction').innerText = status.queues.extraction;
+
                 const grid = document.getElementById('news-grid');
 
                 if (news.length === 0) return;

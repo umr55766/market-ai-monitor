@@ -17,19 +17,26 @@ def run_extraction_worker():
 
     while True:
         try:
-            task = storage.pop_from_queue("extraction")
-            if not task:
+            tasks = storage.pop_batch_from_queue("extraction", batch_size=3)
+            if not tasks:
+                time.sleep(2)
                 continue
                 
-            headline = task['title']
-            print(f"Extracting event: {headline}", flush=True)
+            headlines = [t['title'] for t in tasks]
+            for h in headlines:
+                print(f"Status: EXTRACTING - {h}", flush=True)
+
+            print(f"Processing batch of {len(headlines)} extractions...", flush=True)
+            batch_data = extractor.extract_events_batch(headlines)
             
-            event_data = extractor.extract_event(headline)
-            if event_data:
-                print(f"EXTRACTED DATA: {json.dumps(event_data)}", flush=True)
-            
-            storage.save_headline(headline, status="relevant", event=event_data)
-            
+            for i, event_data in enumerate(batch_data):
+                headline = headlines[i]
+                if event_data:
+                    print(f"EXTRACTED DATA for '{headline}': {json.dumps(event_data)}", flush=True)
+                
+                storage.save_headline(headline, status="relevant", event=event_data)
+                print(f"Status: RELEVANT - {headline}", flush=True)
+                
         except Exception as e:
             print(f"Extraction Worker Error: {e}", flush=True)
             time.sleep(5)

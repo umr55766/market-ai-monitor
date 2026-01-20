@@ -13,26 +13,46 @@ class RelevanceFilter:
         # Target 30 RPM
         self.rate_limiter = RateLimiter(rpm=30)
         
-    def _get_prompt(self, headline: str) -> str:
+    def _get_batch_prompt(self, headlines: list[str]) -> str:
+        numbered_list = "\n".join([f"{i+1}. {h}" for i, h in enumerate(headlines)])
         return f"""
-        Analyze the following news headline and determine if it has potential impact on GLOBAL FINANCIAL MARKETS (stocks, commodities, currencies, bonds).
+        Analyze the following news headlines and determine if each has potential impact on GLOBAL FINANCIAL MARKETS (stocks, commodities, currencies, bonds).
         
-        Headline: "{headline}"
+        Headlines:
+        {numbered_list}
         
-        Respond with ONLY one word: "YES" or "NO".
+        Respond with a numbered list of ONLY "YES" or "NO" for each headline (e.g., "1. YES\n2. NO").
         """
 
-    def is_relevant(self, headline: str) -> bool:
+    def is_relevant_batch(self, headlines: list[str]) -> list[bool]:
+        if not headlines:
+            return []
         try:
             self.rate_limiter.wait()
             
             response = self.client.models.generate_content(
                 model=os.getenv("GEMINI_MODEL", "gemma-3-12b-it"),
-                contents=self._get_prompt(headline)
+                contents=self._get_batch_prompt(headlines)
             )
-            answer = response.text.strip().upper().replace('*', '')
             
-            return "YES" in answer
+            lines = response.text.strip().split("\n")
+            results = []
+            for line in lines:
+                upper_line = line.upper()
+                if "YES" in upper_line:
+                    results.append(True)
+                elif "NO" in upper_line:
+                    results.append(False)
+            
+            # Pad with False if the AI didn't return enough lines
+            while len(results) < len(headlines):
+                results.append(False)
+            
+            return results[:len(headlines)]
+            
         except Exception as e:
-            print(f"AI Filter Error for '{headline}': {e}")
-            return False
+            print(f"Batch AI Filter Error: {e}")
+            return [False] * len(headlines)
+
+    def is_relevant(self, headline: str) -> bool:
+        return self.is_relevant_batch([headline])[0]

@@ -13,17 +13,20 @@ templates = Jinja2Templates(directory="app/dashboard/templates")
 
 @app.get("/", response_class=HTMLResponse)
 async def read_item(request: Request):
-    news = storage.get_recent_news()
+    news = storage.get_recent_news(limit=100)
     return templates.TemplateResponse("index.html", {"request": request, "news": news})
 
 @app.get("/api/news")
 async def get_news():
-    return storage.get_recent_news()
+    return storage.get_recent_news(limit=100)
 
 @app.get("/api/status")
 async def get_status():
     return {
         "status": "online",
-        "model": os.getenv("GEMINI_MODEL", "unknown"),
-        "feeds": os.getenv("RSS_FEEDS", "").split(",")
+        "queues": {
+            "relevance": storage.get_queue_length("relevance"),
+            "extraction": storage.get_queue_length("extraction")
+        },
+        "model": os.getenv("GEMINI_MODEL", "unknown")
     }

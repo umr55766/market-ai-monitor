@@ -1,4 +1,5 @@
 import redis
+from typing import Optional, List
 import hashlib
 import os
 import json
@@ -65,11 +66,11 @@ class NewsStorage:
         self.client.setex(key, 86400 * 7, data)
         
         if not is_update:
-            # Add to recent list only for new entries (limit to 100)
+            # Add to recent list only for new entries (limit to 500)
             self.client.lpush("recent_news", headline_hash)
-            self.client.ltrim("recent_news", 0, 99)
+            self.client.ltrim("recent_news", 0, 499)
 
-    def get_recent_news(self, limit: int = 50):
+    def get_recent_news(self, limit: int = 100):
         hashes = self.client.lrange("recent_news", 0, limit - 1)
         news_items = []
         for h in hashes:
@@ -83,12 +84,30 @@ class NewsStorage:
         self.client.lpush(f"queue:{queue_name}", json.dumps(data))
 
     def pop_from_queue(self, queue_name: str, timeout: int = 5):
-        # Pop from head (LIFO) so newest news are processed first
-        # This matches the dashboard order and feels more "live"
-        result = self.client.blpop(f"queue:{queue_name}", timeout=timeout)
+        # Pop from tail (FIFO)
+        # Ingestor pushes [Newest...Oldest]. 
+        # So Newest is pushed first, goes to tail.
+        # brpop gets the tail (First In, First Out).
+        result = self.client.brpop(f"queue:{queue_name}", timeout=timeout)
         if result:
             return json.loads(result[1].decode('utf-8'))
         return None
+
+    def get_queue_length(self, queue_name: str) -> int:
+        return self.client.llen(f"queue:{queue_name}")
+
+    def pop_batch_from_queue(self, queue_name: str, batch_size: int = 5) -> List[dict]:
+        """Atomically pop up to batch_size items from the queue."""
+        pipe = self.client.pipeline()
+        for _ in range(batch_size):
+            pipe.rpop(f"queue:{queue_name}")
+        
+        results = pipe.execute()
+        items = []
+        for r in results:
+            if r:
+                items.append(json.loads(r.decode('utf-8')))
+        return items
 
     def requeue_pending(self):
         """Scan for pending items and re-add them to the relevance queue if lost."""

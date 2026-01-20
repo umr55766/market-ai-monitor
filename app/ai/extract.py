@@ -14,40 +14,56 @@ class EventExtractor:
         self.model = os.getenv("GEMINI_MODEL", "gemma-3-12b-it")
         self.rate_limiter = RateLimiter(rpm=30)
 
-    def _get_prompt(self, headline: str) -> str:
+    def _get_batch_prompt(self, headlines: List[str]) -> str:
+        numbered_list = "\n".join([f"{i+1}. {h}" for i, h in enumerate(headlines)])
         return f"""
-        Extract structured geopolitical and market data from the following news headline.
+        Extract structured geopolitical and market data from the following news headlines.
         
-        Headline: "{headline}"
+        Headlines:
+        {numbered_list}
         
-        Respond ONLY with a valid JSON object matching this schema:
+        Respond with ONLY a valid JSON array containing {len(headlines)} objects (one for each headline in order), matching this schema for each element:
         {{
-            "event_type": "The category of the event (e.g., Geopolitical, Macroeconomic, Corporate, Regulatory)",
-            "affected_assets": ["List of assets likely impacted like S&P500, Gold, EUR/USD, Oil, etc."],
-            "impact_direction": "The potential direction of market impact (Bullish, Bearish, or Volatile)",
-            "certainty_score": 0.0 to 1.0 representing your confidence in this extraction
+            "event_type": "Geopolitical, Macroeconomic, Corporate, or Regulatory",
+            "affected_assets": ["S&P500", "Gold", etc.],
+            "impact_direction": "Bullish, Bearish, or Volatile",
+            "certainty_score": 0.0 to 1.0
         }}
         """
 
-    def extract_event(self, headline: str) -> Optional[dict]:
+    def extract_events_batch(self, headlines: List[str]) -> List[Optional[dict]]:
+        if not headlines:
+            return []
         try:
             self.rate_limiter.wait()
             
             response = self.client.models.generate_content(
                 model=self.model,
-                contents=self._get_prompt(headline)
+                contents=self._get_batch_prompt(headlines)
             )
             
-            # Clean response text in case of markdown blocks
+            # Clean response text
             text = response.text.strip()
-            if text.startswith("```json"):
-                text = text[7:]
-            if text.endswith("```"):
-                text = text[:-3]
-            text = text.strip()
-
-            print(f"Raw extraction response for '{headline}': {text}", flush=True)
-            return json.loads(text)
+            if "```json" in text:
+                text = text.split("```json")[1].split("```")[0].strip()
+            elif "```" in text:
+                text = text.split("```")[1].split("```")[0].strip()
+            
+            results = json.loads(text)
+            
+            # Ensure it's a list
+            if not isinstance(results, list):
+                results = [results]
+            
+            # Pad or trim to match input size
+            while len(results) < len(headlines):
+                results.append(None)
+            
+            return results[:len(headlines)]
+            
         except Exception as e:
-            print(f"Extraction Error for '{headline}': {e}", flush=True)
-            return None
+            print(f"Batch Extraction Error: {e}", flush=True)
+            return [None] * len(headlines)
+
+    def extract_event(self, headline: str) -> Optional[dict]:
+        return self.extract_events_batch([headline])[0]
