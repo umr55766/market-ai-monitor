@@ -1,16 +1,44 @@
 services:
-  app:
+  dashboard:
     build: .
+    command: python3 -m app.main
     volumes:
       - .:/app
     ports:
       - "8000:8000"
-    environment:
+    environment: &env
       - PYTHONUNBUFFERED=1
       - REDIS_HOST=redis
       - RSS_FEEDS
       - GEMINI_API_KEY
       - GEMINI_MODEL
+    depends_on:
+      - redis
+
+  ingestor:
+    build: .
+    command: python3 -m app.workers.ingestor
+    volumes:
+      - .:/app
+    environment: *env
+    depends_on:
+      - redis
+
+  relevance-worker:
+    build: .
+    command: python3 -m app.workers.relevance
+    volumes:
+      - .:/app
+    environment: *env
+    depends_on:
+      - redis
+
+  extraction-worker:
+    build: .
+    command: python3 -m app.workers.extractor
+    volumes:
+      - .:/app
+    environment: *env
     depends_on:
       - redis
 
