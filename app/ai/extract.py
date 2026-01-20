@@ -42,7 +42,6 @@ class EventExtractor:
                 contents=self._get_batch_prompt(headlines)
             )
             
-            # Clean response text
             text = response.text.strip()
             if "```json" in text:
                 text = text.split("```json")[1].split("```")[0].strip()
@@ -51,11 +50,9 @@ class EventExtractor:
             
             results = json.loads(text)
             
-            # Ensure it's a list
             if not isinstance(results, list):
                 results = [results]
             
-            # Pad or trim to match input size
             while len(results) < len(headlines):
                 results.append(None)
             

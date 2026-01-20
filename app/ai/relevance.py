@@ -10,7 +10,6 @@ class RelevanceFilter:
             raise ValueError("GEMINI_API_KEY environment variable not set")
         
         self.client = genai.Client(api_key=self.api_key)
-        # Target 30 RPM
         self.rate_limiter = RateLimiter(rpm=30)
         
     def _get_batch_prompt(self, headlines: list[str]) -> str:
@@ -44,7 +43,6 @@ class RelevanceFilter:
                 elif "NO" in upper_line:
                     results.append(False)
             
-            # Pad with False if the AI didn't return enough lines
             while len(results) < len(headlines):
                 results.append(False)
             

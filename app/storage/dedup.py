@@ -8,7 +8,7 @@ import time
 class NewsMetadata:
     def __init__(self, title: str, status: str = "pending", timestamp: float = None, event: dict = None):
         self.title = title
-        self.status = status # pending, relevant, ignored
+        self.status = status
         self.timestamp = timestamp or time.time()
         self.event = event
 
@@ -25,7 +25,7 @@ class NewsStorage:
         if redis_host is None:
             redis_host = os.getenv("REDIS_HOST", "localhost")
         
-        # Add retry strategy for startup stability
+        
         self.client = redis.Redis(
             host=redis_host, 
             port=redis_port, 
@@ -45,15 +45,15 @@ class NewsStorage:
         headline_hash = self._get_hash(title)
         key = f"news:{headline_hash}"
         
-        # Try to preserve original timestamp if it exists
+        
         existing_data = self.client.get(key)
         timestamp = None
         if existing_data:
             try:
                 old_meta = json.loads(existing_data)
                 timestamp = old_meta.get('timestamp')
-                # If we aren't passing a new event, preserve the old one
-                if event is None:
+                
+                if event is None and status != "pending":
                     event = old_meta.get('event')
             except:
                 pass
@@ -62,11 +62,9 @@ class NewsStorage:
         metadata = NewsMetadata(title, status=status, timestamp=timestamp, event=event)
         data = json.dumps(metadata.to_dict())
         
-        # Save metadata (expires in 7 days)
         self.client.setex(key, 86400 * 7, data)
         
         if not is_update:
-            # Add to recent list only for new entries (limit to 500)
             self.client.lpush("recent_news", headline_hash)
             self.client.ltrim("recent_news", 0, 499)
 
@@ -80,14 +78,9 @@ class NewsStorage:
         return news_items
 
     def push_to_queue(self, queue_name: str, data: dict):
-        # Push to head
         self.client.lpush(f"queue:{queue_name}", json.dumps(data))
 
     def pop_from_queue(self, queue_name: str, timeout: int = 5):
-        # Pop from tail (FIFO)
-        # Ingestor pushes [Newest...Oldest]. 
-        # So Newest is pushed first, goes to tail.
-        # brpop gets the tail (First In, First Out).
         result = self.client.brpop(f"queue:{queue_name}", timeout=timeout)
         if result:
             return json.loads(result[1].decode('utf-8'))
@@ -97,7 +90,6 @@ class NewsStorage:
         return self.client.llen(f"queue:{queue_name}")
 
     def pop_batch_from_queue(self, queue_name: str, batch_size: int = 5) -> List[dict]:
-        """Atomically pop up to batch_size items from the queue."""
         pipe = self.client.pipeline()
         for _ in range(batch_size):
             pipe.rpop(f"queue:{queue_name}")
@@ -110,14 +102,12 @@ class NewsStorage:
         return items
 
     def requeue_pending(self):
-        """Scan for pending items and re-add them to the relevance queue if lost."""
-        hashes = self.client.lrange("recent_news", 0, 99)
+        hashes = self.client.lrange("recent_news", 0, 499)
         requeued_count = 0
         for h in hashes:
             data = self.client.get(f"news:{h.decode('utf-8')}")
             if data:
                 item = json.loads(data)
-                # If still pending (and not already in queue - though duplicates are okayish)
                 if item.get('status') == 'pending':
                     self.push_to_queue("relevance", {"title": item['title']})
                     requeued_count += 1

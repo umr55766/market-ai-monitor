@@ -53,6 +53,33 @@
             font-size: 2.5rem;
         }
 
+        .btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--accent-primary);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: rgba(0, 242, 255, 0.05);
+            border: 1px solid rgba(0, 242, 255, 0.2);
+            color: var(--accent-primary);
+        }
+
         .status-badge {
             background: rgba(0, 255, 136, 0.1);
             color: var(--success);
@@ -228,9 +255,14 @@
                     Queues: <span id="q-relevance">...</span> Analyz. | <span id="q-extraction">...</span> Extr.
                 </div>
             </div>
-            <div class="status-badge">
-                <div class="pulse"></div>
-                LIVE MONITORING
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <button class="btn" onclick="refreshNews()" title="Refresh Dashboard Feed">
+                    Refresh
+                </button>
+                <div class="status-badge">
+                    <div class="pulse"></div>
+                    LIVE MONITORING
+                </div>
             </div>
         </header>
 
@@ -243,7 +275,7 @@
                     <div class="meta">
                         <span>{{ item.timestamp | float | round | int }}</span>
                     </div>
-                    {% if item.event %}
+                    {% if item.event and item.status == 'relevant' %}
                     <div class="event-data">
                         <div class="event-type">{{ item.event.event_type }}</div>
                         <div class="event-assets">
@@ -273,7 +305,6 @@
     </div>
 
     <script>
-        // Auto-refresh data every 10 seconds
         async function refreshNews() {
             try {
                 const [newsResponse, statusResponse] = await Promise.all([
@@ -284,7 +315,6 @@
                 const news = await newsResponse.json();
                 const status = await statusResponse.json();
 
-                // Update queues
                 document.getElementById('q-relevance').innerText = status.queues.relevance;
                 document.getElementById('q-extraction').innerText = status.queues.extraction;
 
@@ -299,7 +329,7 @@
                             <div class="meta">
                                 <span>${new Date(item.timestamp * 1000).toLocaleTimeString()}</span>
                             </div>
-                            ${item.event ? `
+                            ${item.event && item.status === 'relevant' ? `
                             <div class="event-data">
                                 <div class="event-type">${item.event.event_type}</div>
                                 <div class="event-assets">

@@ -15,13 +15,19 @@ def run_extraction_worker():
 
     print("Extraction Worker started...")
 
+    idle_seconds = 0
     while True:
         try:
             tasks = storage.pop_batch_from_queue("extraction", batch_size=3)
             if not tasks:
+                idle_seconds += 2
+                if idle_seconds >= 60:
+                    print(f"[{time.ctime()}] Extraction Worker Heartbeat: Waiting for tasks...", flush=True)
+                    idle_seconds = 0
                 time.sleep(2)
                 continue
-                
+            
+            idle_seconds = 0
             headlines = [t['title'] for t in tasks]
             for h in headlines:
                 print(f"Status: EXTRACTING - {h}", flush=True)

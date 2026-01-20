@@ -8,7 +8,7 @@ import os
 app = FastAPI()
 storage = NewsStorage()
 
-# Setup templates
+
 templates = Jinja2Templates(directory="app/dashboard/templates")
 
 @app.get("/", response_class=HTMLResponse)

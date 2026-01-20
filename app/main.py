@@ -4,7 +4,6 @@ from app.storage.dedup import NewsStorage
 from app.dashboard.web import app as web_app
 
 def main():
-    # Wait for Redis to be ready
     storage = NewsStorage()
     for i in range(10):
         try:

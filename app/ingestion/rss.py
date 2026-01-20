@@ -1,5 +1,6 @@
 import feedparser
 import os
+import requests
 from typing import List
 from app.ingestion.base import NewsSource
 
@@ -17,9 +18,15 @@ class RSSIngestor(NewsSource):
         headlines = []
         for url in self.feeds:
             try:
-                feed = feedparser.parse(url)
+                print(f"Fetching feed: {url}", flush=True)
+                response = requests.get(url, timeout=10)
+                response.raise_for_status()
+                
+                feed = feedparser.parse(response.content)
                 for entry in feed.entries:
-                    headlines.append(entry.title)
+                    if hasattr(entry, 'title'):
+                        headlines.append(entry.title)
+                print(f"Success: Found {len(feed.entries)} items from {url}", flush=True)
             except Exception as e:
-                print(f"Error fetching {url}: {e}")
+                print(f"Error fetching {url}: {e}", flush=True)
         return headlines
