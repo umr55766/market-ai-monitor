@@ -69,6 +69,19 @@ class NewsMonitorSystem:
             print("No new news.", flush=True)
 
 def main():
+    storage = NewsStorage()
+    for i in range(10):
+        try:
+            storage.client.ping()
+            print("Connected to Redis successfully.")
+            break
+        except Exception:
+            print(f"Waiting for Redis... (Attempt {i+1}/10)")
+            time.sleep(2)
+    else:
+        print("Could not connect to Redis. Exiting.")
+        return
+
     system = NewsMonitorSystem()
     system.run()
 

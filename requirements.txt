@@ -6,3 +6,5 @@ python-telegram-bot
 fastapi
 uvicorn
 jinja2
+python-dotenv
+requests
