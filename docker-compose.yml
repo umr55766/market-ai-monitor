@@ -4,6 +4,7 @@ services:
     command: python3 -m app.main
     volumes:
       - .:/app
+      - ./data:/app/data
     ports:
       - "8000:8000"
     environment: &env
@@ -20,6 +21,7 @@ services:
     command: python3 -m app.workers.ingestor
     volumes:
       - .:/app
+      - ./data:/app/data
     environment: *env
     depends_on:
       - redis
@@ -29,6 +31,7 @@ services:
     command: python3 -m app.workers.relevance
     volumes:
       - .:/app
+      - ./data:/app/data
     environment: *env
     depends_on:
       - redis
@@ -38,6 +41,7 @@ services:
     command: python3 -m app.workers.extractor
     volumes:
       - .:/app
+      - ./data:/app/data
     environment: *env
     depends_on:
       - redis
