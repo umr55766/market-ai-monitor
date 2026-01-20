@@ -132,16 +132,50 @@
             text-transform: uppercase;
         }
 
-        .relevance-true {
+        .status-relevant {
             background: rgba(0, 242, 255, 0.15);
             color: var(--accent-primary);
             border: 1px solid rgba(0, 242, 255, 0.3);
         }
 
-        .relevance-false {
+        .status-ignored {
             background: rgba(255, 255, 255, 0.05);
             color: var(--text-dim);
             border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-pending {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-dim);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-analyzing {
+            background: rgba(0, 242, 255, 0.1);
+            color: var(--accent-primary);
+            border: 1px solid rgba(0, 242, 255, 0.3);
+            animation: pulse-border 1.5s infinite;
+        }
+
+        .status-extracting {
+            background: rgba(112, 0, 255, 0.1);
+            color: #b066ff;
+            border: 1px solid rgba(112, 0, 255, 0.3);
+            animation: pulse-border 1s infinite;
+        }
+
+        @keyframes pulse-border {
+            0% {
+                opacity: 0.7;
+            }
+
+            50% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0.7;
+            }
         }
 
         .empty-state {
@@ -219,8 +253,8 @@
                     {% endif %}
                 </div>
                 <div>
-                    <span class="relevance-indicator relevance-{{ 'true' if item.relevance else 'false' }}">
-                        {{ 'Relevant' if item.relevance else 'Ignored' }}
+                    <span class="relevance-indicator status-{{ item.status }}">
+                        {{ item.status | capitalize }}
                     </span>
                 </div>
             </div>
@@ -263,8 +297,8 @@
                             ` : ''}
                         </div>
                         <div>
-                            <span class="relevance-indicator relevance-${item.relevance}">
-                                ${item.relevance ? 'Relevant' : 'Ignored'}
+                            <span class="relevance-indicator status-${item.status}">
+                                ${item.status.charAt(0).toUpperCase() + item.status.slice(1)}
                             </span>
                         </div>
                     </div>

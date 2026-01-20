@@ -5,16 +5,16 @@ import json
 import time
 
 class NewsMetadata:
-    def __init__(self, title: str, relevance: bool = False, timestamp: float = None, event: dict = None):
+    def __init__(self, title: str, status: str = "pending", timestamp: float = None, event: dict = None):
         self.title = title
-        self.relevance = relevance
+        self.status = status # pending, relevant, ignored
         self.timestamp = timestamp or time.time()
         self.event = event
 
     def to_dict(self):
         return {
             "title": self.title,
-            "relevance": self.relevance,
+            "status": self.status,
             "timestamp": self.timestamp,
             "event": self.event
         }
@@ -40,17 +40,22 @@ class NewsStorage:
         headline_hash = self._get_hash(headline)
         return self.client.exists(f"news:{headline_hash}") == 1
 
-    def save_headline(self, title: str, relevance: bool, event: dict = None):
+    def save_headline(self, title: str, status: str, event: dict = None):
         headline_hash = self._get_hash(title)
-        metadata = NewsMetadata(title, relevance, event=event)
+        
+        # Check if we are updating an existing one to avoid duplicate list entries
+        is_update = self.client.exists(f"news:{headline_hash}")
+        
+        metadata = NewsMetadata(title, status=status, event=event)
         data = json.dumps(metadata.to_dict())
         
-        # Save metadata
-        self.client.setex(f"news:{headline_hash}", 86400 * 7, data) # Keep for 7 days
+        # Save metadata (expires in 7 days)
+        self.client.setex(f"news:{headline_hash}", 86400 * 7, data)
         
-        # Add to recent list (limit to 100)
-        self.client.lpush("recent_news", headline_hash)
-        self.client.ltrim("recent_news", 0, 99)
+        if not is_update:
+            # Add to recent list only for new entries (limit to 100)
+            self.client.lpush("recent_news", headline_hash)
+            self.client.ltrim("recent_news", 0, 99)
 
     def get_recent_news(self, limit: int = 50):
         hashes = self.client.lrange("recent_news", 0, limit - 1)

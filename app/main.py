@@ -39,34 +39,52 @@ class NewsMonitorSystem:
     def process_cycle(self):
         print("Fetching news...", flush=True)
         headlines = self.ingestor.fetch_headlines()
-        new_count = 0
+        
+        # Phase 1: Ingest new items
+        new_found = False
         for h in headlines:
             if not self.storage.exists(h):
+                print(f"New headline fetched: {h}", flush=True)
+                self.storage.save_headline(h, status="pending")
+                new_found = True
+        
+        # Phase 2: Retrieve all pending items from storage to process
+        # This handles items stuck from previous runs or crashes
+        recent_items = self.storage.get_recent_news(limit=100)
+        to_process = [item['title'] for item in recent_items if item.get('status') == 'pending']
+
+        if not to_process:
+            if new_found:
+                print("All new items were ingested but somehow none are pending (unexpected).", flush=True)
+            else:
+                print("No new news.", flush=True)
+            return
+
+        print(f"Processing {len(to_process)} pending items...", flush=True)
+
+        # Phase 3: Process the pending headlines (AI logic)
+        for h in to_process:
+            # AI Relevance filtering
+            is_relevant = False
+            if self.relevance_filter:
                 print(f"Checking relevance: {h}", flush=True)
-                
-                is_relevant = True
-                if self.relevance_filter:
-                    is_relevant = self.relevance_filter.is_relevant(h)
-                
-                event_data = None
-                if is_relevant and self.event_extractor:
+                self.storage.save_headline(h, status="analyzing")
+                is_relevant = self.relevance_filter.is_relevant(h)
+            
+            event_data = None
+            if is_relevant:
+                print(f"✅ RELEVANT NEWS: {h}", flush=True)
+                if self.event_extractor:
                     print(f"Extracting event data: {h}", flush=True)
+                    self.storage.save_headline(h, status="extracting")
                     event_data = self.event_extractor.extract_event(h)
                     if event_data:
                         print(f"EXTRACTED JSON: {json.dumps(event_data)}", flush=True)
                 
-                # Save to persistent storage with relevance status and event data
-                self.storage.save_headline(h, is_relevant, event=event_data)
-                
-                if is_relevant:
-                    print(f"✅ RELEVANT NEWS: {h}", flush=True)
-                else:
-                    print(f"❌ SKIPPED (Irrelevant): {h}", flush=True)
-                
-                new_count += 1
-        
-        if new_count == 0:
-            print("No new news.", flush=True)
+                self.storage.save_headline(h, status="relevant", event=event_data)
+            else:
+                print(f"❌ SKIPPED (Irrelevant): {h}", flush=True)
+                self.storage.save_headline(h, status="ignored")
 
 def main():
     storage = NewsStorage()
