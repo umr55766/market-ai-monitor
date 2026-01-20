@@ -1,0 +1,7 @@
+google-generativeai
+redis
+yfinance
+feedparser
+python-telegram-bot
+python-dotenv
+requests
