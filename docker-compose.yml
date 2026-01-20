@@ -7,3 +7,12 @@ services:
       - .:/app
     environment:
       - PYTHONUNBUFFERED=1
+      - REDIS_HOST=redis
+      - RSS_FEEDS
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
