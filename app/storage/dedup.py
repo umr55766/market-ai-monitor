@@ -8,8 +8,9 @@ import time
 from app.storage.sqlite_db import DashboardDB
 
 class NewsMetadata:
-    def __init__(self, title: str, status: str = "pending", timestamp: float = None, event: dict = None):
+    def __init__(self, title: str, link: str = None, status: str = "pending", timestamp: float = None, event: dict = None):
         self.title = title
+        self.link = link
         self.status = status
         self.timestamp = timestamp or time.time()
         self.event = event
@@ -17,6 +18,7 @@ class NewsMetadata:
     def to_dict(self):
         return {
             "title": self.title,
+            "link": self.link,
             "status": self.status,
             "timestamp": self.timestamp,
             "event": self.event
@@ -42,16 +44,26 @@ class NewsStorage:
     def exists(self, headline: str) -> bool:
         return self.db.exists(self._get_hash(headline))
 
-    def save_headline(self, title: str, status: str, event: dict = None):
+    def save_headline(self, title: str, status: str, link: str = None, event: dict = None, published: float = None):
         h = self._get_hash(title)
         
         existing = self.db.get_news_by_hash(h)
-        timestamp = existing['timestamp'] if existing else time.time()
         
+        # Use published timestamp if provided, otherwise use existing or current time
+        if published:
+            timestamp = published
+        elif existing:
+            timestamp = existing['timestamp']
+        else:
+            timestamp = time.time()
+        
+        if link is None and existing:
+            link = existing.get('link')
+
         if event is None and status != "pending" and existing:
             event = existing.get('event')
             
-        self.db.save_news(h, title, status, timestamp, event)
+        self.db.save_news(h, title, status, timestamp, link, event)
 
     def get_recent_news(self, limit: int = 100):
         return self.db.get_recent(limit)
@@ -81,11 +93,20 @@ class NewsStorage:
         return items
 
     def requeue_pending(self):
-        hashes = self.db.get_pending_hashes()
+        stuck = self.db.get_stuck_hashes()
         requeued_count = 0
-        for h in hashes:
+        for item_info in stuck:
+            h = item_info['hash']
+            status = item_info['status']
             item = self.db.get_news_by_hash(h)
-            if item:
+            
+            if not item:
+                continue
+                
+            if status in ["pending", "analyzing"]:
                 self.push_to_queue("relevance", {"title": item['title']})
-                requeued_count += 1
+            elif status == "extracting":
+                self.push_to_queue("extraction", {"title": item['title']})
+            
+            requeued_count += 1
         return requeued_count

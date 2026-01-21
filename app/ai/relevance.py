@@ -15,7 +15,13 @@ class RelevanceFilter:
     def _get_batch_prompt(self, headlines: list[str]) -> str:
         numbered_list = "\n".join([f"{i+1}. {h}" for i, h in enumerate(headlines)])
         return f"""
-        Analyze the following news headlines and determine if each has potential impact on GLOBAL FINANCIAL MARKETS (stocks, commodities, currencies, bonds).
+        Analyze the following news headlines and determine if each has potential impact on GLOBAL FINANCIAL MARKETS.
+        A headline is relevant if it relates to:
+        1. Macroeconomic data (GDP, inflation, employment).
+        2. Central bank actions or statements (Fed, ECB, etc.).
+        3. Significant news about major publicly traded companies (S&P 500, etc.) that could move their stock price.
+        4. Geopolitical events (wars, trade deals, elections).
+        5. Commodity price drivers (oil, gold, etc.).
         
         Headlines:
         {numbered_list}

@@ -1,6 +1,7 @@
 import feedparser
 import os
 import requests
+import time
 from typing import List
 from app.ingestion.base import NewsSource
 
@@ -14,8 +15,8 @@ class RSSIngestor(NewsSource):
             return []
         return [url.strip() for url in feeds_str.split(",") if url.strip()]
 
-    def fetch_headlines(self) -> List[str]:
-        headlines = []
+    def fetch_headlines(self) -> List[dict]:
+        results = []
         for url in self.feeds:
             try:
                 print(f"Fetching feed: {url}", flush=True)
@@ -25,8 +26,19 @@ class RSSIngestor(NewsSource):
                 feed = feedparser.parse(response.content)
                 for entry in feed.entries:
                     if hasattr(entry, 'title'):
-                        headlines.append(entry.title)
+                        # Extract published timestamp
+                        pub_timestamp = None
+                        if hasattr(entry, 'published_parsed') and entry.published_parsed:
+                            pub_timestamp = time.mktime(entry.published_parsed)
+                        elif hasattr(entry, 'updated_parsed') and entry.updated_parsed:
+                            pub_timestamp = time.mktime(entry.updated_parsed)
+                        
+                        results.append({
+                            "title": entry.title,
+                            "link": getattr(entry, 'link', None),
+                            "published": pub_timestamp
+                        })
                 print(f"Success: Found {len(feed.entries)} items from {url}", flush=True)
             except Exception as e:
                 print(f"Error fetching {url}: {e}", flush=True)
-        return headlines
+        return results

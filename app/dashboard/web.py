@@ -28,5 +28,7 @@ async def get_status():
             "relevance": storage.get_queue_length("relevance"),
             "extraction": storage.get_queue_length("extraction")
         },
+        "prices": storage.db.get_latest_prices(),
+        "anomalies": storage.db.get_recent_anomalies(limit=5),
         "model": os.getenv("GEMINI_MODEL", "unknown")
     }

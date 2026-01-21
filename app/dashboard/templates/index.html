@@ -144,6 +144,16 @@
             display: block;
         }
 
+        .headline-link {
+            text-decoration: none;
+            color: var(--text-main);
+            transition: color 0.2s;
+        }
+
+        .headline-link:hover {
+            color: var(--accent-primary);
+        }
+
         .meta {
             font-size: 0.85rem;
             color: var(--text-dim);
@@ -243,6 +253,114 @@
             color: var(--text-dim);
             font-style: italic;
         }
+
+        .ticker-bar {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 12px 20px;
+            margin-bottom: 30px;
+            display: flex;
+            gap: 25px;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .ticker-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+
+        .ticker-symbol {
+            font-weight: 600;
+            color: var(--text-dim);
+        }
+
+        .ticker-price {
+            color: var(--accent-primary);
+            font-family: monospace;
+        }
+
+        .anomalies-section {
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .anomaly-card {
+            background: rgba(255, 68, 102, 0.05);
+            border: 1px solid rgba(255, 68, 102, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .anomaly-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .anomaly-ticker {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #ff4466;
+        }
+
+        .anomaly-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .level-CRITICAL {
+            background: #ff4466;
+            color: white;
+        }
+
+        .level-HIGH {
+            background: #ff8800;
+            color: white;
+        }
+
+        .level-MEDIUM {
+            background: #ffbb33;
+            color: black;
+        }
+
+        .level-LOW {
+            background: #0099cc;
+            color: white;
+        }
+
+        .anomaly-details {
+            font-size: 0.95rem;
+            color: var(--text-main);
+        }
+
+        .correlation-tag {
+            background: rgba(0, 242, 255, 0.1);
+            border: 1px solid rgba(0, 242, 255, 0.2);
+            color: var(--accent-primary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-right: 5px;
+        }
     </style>
 </head>
 
@@ -261,19 +379,43 @@
                 </button>
                 <div class="status-badge">
                     <div class="pulse"></div>
-                    LIVE MONITORING
-                </div>
-            </div>
         </header>
 
+        <div class="ticker-bar" id="ticker-bar">
+            <!-- Tickers populated by JS -->
+            <div style="color: var(--text-dim);">Loading market data...</div>
+        </div>
+
+        <div class="anomalies-section" id="anomalies-section" style="display: none;">
+            <div class="section-title">
+                <span style="color: #ff4466;">⚠</span> Recent Market Anomalies
+            </div>
+            <div id="anomalies-list">
+                <!-- Anomalies populated by JS -->
+            </div>
+        </div>
+
+        <div class="section-title">Market Feed</div>
         <div class="grid" id="news-grid">
             {% if news %}
             {% for item in news %}
             <div class="news-card">
                 <div class="news-info">
+                    {% if item.link %}
+                    <a href="{{ item.link }}" target="_blank" class="headline-link">
+                        <span class="headline">{{ item.title }} ↗</span>
+                    </a>
+                    {% else %}
                     <span class="headline">{{ item.title }}</span>
+                    {% endif %}
                     <div class="meta">
-                        <span>{{ item.timestamp | float | round | int }}</span>
+                        <span id="ts-{{ loop.index }}"></span>
+                        <script>document.getElementById('ts-{{ loop.index }}').innerText = new Date({{ item.timestamp }} * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ', ' + new Date({{ item.timestamp }} * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });</script>
+                        {% if item.link %}
+                        <a href="{{ item.link }}" target="_blank"
+                            style="color: var(--accent-primary); text-decoration: none; font-size: 0.8rem;">View
+                            Source</a>
+                        {% endif %}
                     </div>
                     {% if item.event and item.status == 'relevant' %}
                     <div class="event-data">
@@ -315,39 +457,85 @@
                 const news = await newsResponse.json();
                 const status = await statusResponse.json();
 
+                // 1. Update Queues
                 document.getElementById('q-relevance').innerText = status.queues.relevance;
                 document.getElementById('q-extraction').innerText = status.queues.extraction;
 
-                const grid = document.getElementById('news-grid');
+                // 2. Update Ticker Bar
+                const tickerBar = document.getElementById('ticker-bar');
+                if (status.prices && Object.keys(status.prices).length > 0) {
+                    tickerBar.innerHTML = Object.entries(status.prices).map(([symbol, price]) => `
+                        <div class="ticker-item">
+                            <span class="ticker-symbol">${symbol}</span>
+                            <span class="ticker-price">${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                    `).join('');
+                }
 
-                if (news.length === 0) return;
+                // 3. Update Anomalies
+                const anomaliesSection = document.getElementById('anomalies-section');
+                const anomaliesList = document.getElementById('anomalies-list');
 
-                grid.innerHTML = news.map(item => `
-                    <div class="news-card">
-                        <div class="news-info">
-                            <span class="headline">${item.title}</span>
-                            <div class="meta">
-                                <span>${new Date(item.timestamp * 1000).toLocaleTimeString()}</span>
+                if (status.anomalies && status.anomalies.length > 0) {
+                    anomaliesSection.style.display = 'block';
+                    anomaliesList.innerHTML = status.anomalies.map(anom => `
+                        <div class="anomaly-card">
+                            <div class="anomaly-header">
+                                <span class="anomaly-ticker">${anom.ticker}</span>
+                                <span class="anomaly-badge level-${anom.level}">${anom.level}</span>
                             </div>
-                            ${item.event && item.status === 'relevant' ? `
-                            <div class="event-data">
-                                <div class="event-type">${item.event.event_type}</div>
-                                <div class="event-assets">
-                                    ${item.event.affected_assets.map(a => `<span class="asset-tag">${a}</span>`).join('')}
-                                </div>
-                                <div class="event-impact">
-                                    ${item.event.impact_direction} (${Math.round(item.event.certainty_score * 100)}%)
-                                </div>
+                            <div class="anomaly-details">
+                                Detected <strong>${anom.change_pct > 0 ? '+' : ''}${anom.change_pct.toFixed(2)}%</strong> move. 
+                                Score: <strong>${Math.round(anom.score)}</strong>
                             </div>
+                            ${anom.correlations && anom.correlations.length > 0 ? `
+                                <div style="margin-top: 5px;">
+                                    <span style="font-size: 0.8rem; color: var(--text-dim);">Related News:</span>
+                                    ${anom.correlations.map(c => `<span class="correlation-tag">${c.title.substring(0, 50)}...</span>`).join('')}
+                                </div>
                             ` : ''}
                         </div>
-                        <div>
-                            <span class="relevance-indicator status-${item.status}">
-                                ${item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-                            </span>
+                    `).join('');
+                } else {
+                    anomaliesSection.style.display = 'none';
+                }
+
+                // 4. Update News Feed
+                const grid = document.getElementById('news-grid');
+                if (news.length > 0) {
+                    grid.innerHTML = news.map(item => `
+                        <div class="news-card">
+                            <div class="news-info">
+                                ${item.link ? `
+                                    <a href="${item.link}" target="_blank" class="headline-link">
+                                        <span class="headline">${item.title} ↗</span>
+                                    </a>
+                                ` : `<span class="headline">${item.title}</span>`}
+                                
+                                <div class="meta">
+                                    <span>${new Date(item.timestamp * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}, ${new Date(item.timestamp * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                                    ${item.link ? `<a href="${item.link}" target="_blank" style="color: var(--accent-primary); text-decoration: none; font-size: 0.8rem;">View Source</a>` : ''}
+                                </div>
+                                ${item.event && item.status === 'relevant' ? `
+                                <div class="event-data">
+                                    <div class="event-type">${item.event.event_type}</div>
+                                    <div class="event-assets">
+                                        ${item.event.affected_assets.map(a => `<span class="asset-tag">${a}</span>`).join('')}
+                                    </div>
+                                    <div class="event-impact">
+                                        ${item.event.impact_direction} (${Math.round(item.event.certainty_score * 100)}%)
+                                    </div>
+                                </div>
+                                ` : ''}
+                            </div>
+                            <div>
+                                <span class="relevance-indicator status-${item.status}">
+                                    ${item.status.charAt(0).toUpperCase() + item.status.slice(1)}
+                                </span>
+                            </div>
                         </div>
-                    </div>
-                `).join('');
+                    `).join('');
+                }
             } catch (e) {
                 console.error("Refresh failed", e);
             }

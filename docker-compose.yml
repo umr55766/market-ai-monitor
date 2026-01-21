@@ -46,6 +46,26 @@ services:
     depends_on:
       - redis
 
+  market-worker:
+    build: .
+    command: python3 -m app.workers.market
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    environment: *env
+    depends_on:
+      - redis
+
+  anomaly-worker:
+    build: .
+    command: python3 -m app.workers.anomaly_worker
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    environment: *env
+    depends_on:
+      - redis
+
   redis:
     image: redis:alpine
     ports:

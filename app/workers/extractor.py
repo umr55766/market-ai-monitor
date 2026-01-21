@@ -32,16 +32,17 @@ def run_extraction_worker():
             for h in headlines:
                 print(f"Status: EXTRACTING - {h}", flush=True)
 
-            print(f"Processing batch of {len(headlines)} extractions...", flush=True)
-            batch_data = extractor.extract_events_batch(headlines)
-            
-            for i, event_data in enumerate(batch_data):
-                headline = headlines[i]
-                if event_data:
-                    print(f"EXTRACTED DATA for '{headline}': {json.dumps(event_data)}", flush=True)
+            if headlines:
+                print(f"Processing batch of {len(headlines)} extractions...", flush=True)
+                batch_data = extractor.extract_events_batch(headlines)
                 
-                storage.save_headline(headline, status="relevant", event=event_data)
-                print(f"Status: RELEVANT - {headline}", flush=True)
+                for i, event_data in enumerate(batch_data):
+                    headline = headlines[i]
+                    if event_data:
+                        print(f"EXTRACTED DATA for '{headline}': {json.dumps(event_data)}", flush=True)
+                    
+                    storage.save_headline(headline, status="relevant", event=event_data)
+                    print(f"Status: RELEVANT - {headline}", flush=True)
                 
         except Exception as e:
             print(f"Extraction Worker Error: {e}", flush=True)
