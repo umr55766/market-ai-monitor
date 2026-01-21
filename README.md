@@ -14,7 +14,7 @@ A market monitoring system that ingests RSS feeds, extracts market-relevant even
    export RSS_FEEDS="https://rss.nytimes.com/services/xml/rss/nyt/Business.xml"
    ```
 
-3. (Optional) Set GEMINI_API_KEY for AI-powered schema learning:
+3. Set GEMINI_API_KEY for AI capabilities
    ```bash
    export GEMINI_API_KEY="your_api_key"
    ```
