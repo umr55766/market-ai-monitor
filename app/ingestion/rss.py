@@ -1,13 +1,14 @@
 import feedparser
 import os
 import requests
-import time
 from typing import List
 from app.ingestion.base import NewsSource
+from app.ingestion.schema_learner import FeedSchemaLearner
 
 class RSSIngestor(NewsSource):
     def __init__(self):
         self.feeds = self._get_feeds()
+        self.schema_learner = FeedSchemaLearner()
 
     def _get_feeds(self) -> List[str]:
         feeds_str = os.getenv("RSS_FEEDS", "")
@@ -24,20 +25,24 @@ class RSSIngestor(NewsSource):
                 response.raise_for_status()
                 
                 feed = feedparser.parse(response.content)
+                
+                # Learn schema directly from feed response entries
+                if feed.entries:
+                    schema = self.schema_learner.learn_schema(url, feed.entries)
+                else:
+                    schema = self.schema_learner._default_schema()
+                
+                # Parse all entries using the schema
                 for entry in feed.entries:
                     if hasattr(entry, 'title'):
-                        # Extract published timestamp
-                        pub_timestamp = None
-                        if hasattr(entry, 'published_parsed') and entry.published_parsed:
-                            pub_timestamp = time.mktime(entry.published_parsed)
-                        elif hasattr(entry, 'updated_parsed') and entry.updated_parsed:
-                            pub_timestamp = time.mktime(entry.updated_parsed)
+                        parsed = self.schema_learner.parse_entry(entry, schema)
                         
                         results.append({
-                            "title": entry.title,
-                            "link": getattr(entry, 'link', None),
-                            "published": pub_timestamp
+                            "title": parsed["title"] or entry.title,
+                            "link": parsed["link"],
+                            "published": parsed["published"]
                         })
+                
                 print(f"Success: Found {len(feed.entries)} items from {url}", flush=True)
             except Exception as e:
                 print(f"Error fetching {url}: {e}", flush=True)
