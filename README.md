@@ -25,6 +25,16 @@ A market monitoring system that ingests RSS feeds, extracts market-relevant even
 docker-compose up
 ```
 
+## Dashboard
+
+Once Docker Compose is running, open the dashboard:
+
+- **UI**: `http://localhost:8000/`
+- **News API**: `http://localhost:8000/api/news` (latest ~100 items)
+- **Status API**: `http://localhost:8000/api/status` (queue sizes, recent anomalies, latest prices, active model)
+
+The dashboard reads from Redis/SQLite-backed storage and shows the most recent ingested headlines and their processing status.
+
 ## RSS Feed Schema Learning
 
 The system automatically learns RSS feed schemas from feed responses using AI. If `GEMINI_API_KEY` is not set, it falls back to a default schema that works for most standard RSS feeds.
