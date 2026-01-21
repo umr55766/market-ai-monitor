@@ -20,9 +20,3 @@ class MarketData:
             except Exception as e:
                 print(f"Error fetching {ticker}: {e}")
         return results
-
-if __name__ == "__main__":
-    # Quick test
-    m = MarketData()
-    print("Testing Price Fetching...")
-    print(m.fetch_latest())
