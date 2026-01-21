@@ -13,6 +13,8 @@ services:
       - RSS_FEEDS
       - GEMINI_API_KEY
       - GEMINI_MODEL
+      - TELEGRAM_BOT_TOKEN
+      - TELEGRAM_CHAT_ID
     depends_on:
       - redis
 
