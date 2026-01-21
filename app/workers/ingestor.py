@@ -1,17 +1,22 @@
 import time
 from app.ingestion.rss import RSSIngestor
 from app.storage.dedup import NewsStorage
+from app.runtime import wait_for
 
 def run_ingestor():
+    FETCH_INTERVAL_S = 120
+    REDIS_CONNECT_ATTEMPTS = 5
+    REDIS_CONNECT_DELAY_S = 2
+    MAX_ITEM_AGE_S = 86400  # 24h
+
     ingestor = RSSIngestor()
     storage = NewsStorage()
-    
-    for i in range(5):
-        try:
-            storage.client.ping()
-            break
-        except:
-            time.sleep(2)
+    wait_for(
+        lambda: bool(storage.client.ping()),
+        attempts=REDIS_CONNECT_ATTEMPTS,
+        delay_s=REDIS_CONNECT_DELAY_S,
+        on_retry=lambda i, e: None,
+    )
 
     print("Ingestor Worker started...")
     
@@ -28,7 +33,7 @@ def run_ingestor():
             new_count = 0
             skipped_old = 0
             current_time = time.time()
-            one_day_ago = current_time - 86400  # 24 hours in seconds
+            oldest_allowed = current_time - MAX_ITEM_AGE_S
             
             for entry in entries:
                 h = entry['title']
@@ -36,7 +41,7 @@ def run_ingestor():
                 published = entry.get('published')
                 
                 # Skip news older than 1 day
-                if published and published < one_day_ago:
+                if published and published < oldest_allowed:
                     skipped_old += 1
                     continue
                 
@@ -56,8 +61,8 @@ def run_ingestor():
             if skipped_old > 0:
                 print(f"  [FILTERED] Skipped {skipped_old} articles older than 1 day", flush=True)
             print(f"--- Fetch Cycle Finished. Total: {len(entries)} items, New: {new_count} ---", flush=True)
-            print(f"Sleeping for 120s...", flush=True)
-            time.sleep(120)
+            print(f"Sleeping for {FETCH_INTERVAL_S}s...", flush=True)
+            time.sleep(FETCH_INTERVAL_S)
         except Exception as e:
             print(f"Ingestor Error: {e}", flush=True)
             time.sleep(10)

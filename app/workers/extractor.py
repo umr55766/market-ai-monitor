@@ -2,8 +2,13 @@ import time
 import json
 from app.storage.dedup import NewsStorage
 from app.ai.extract import EventExtractor
+from app.runtime import heartbeat_sleep
 
 def run_extraction_worker():
+    BATCH_SIZE = 3
+    IDLE_POLL_S = 2
+    HEARTBEAT_EVERY_S = 60
+
     storage = NewsStorage()
     extractor = None
     
@@ -15,19 +20,21 @@ def run_extraction_worker():
 
     print("Extraction Worker started...")
 
-    idle_seconds = 0
     while True:
         try:
-            tasks = storage.pop_batch_from_queue("extraction", batch_size=3)
+            tasks = storage.pop_batch_from_queue("extraction", batch_size=BATCH_SIZE)
             if not tasks:
-                idle_seconds += 2
-                if idle_seconds >= 60:
-                    print(f"[{time.ctime()}] Extraction Worker Heartbeat: Waiting for tasks...", flush=True)
-                    idle_seconds = 0
-                time.sleep(2)
+                heartbeat_sleep(
+                    sleep_s=IDLE_POLL_S,
+                    heartbeat_every_s=HEARTBEAT_EVERY_S,
+                    heartbeat=lambda: print(
+                        f"[{time.ctime()}] Extraction Worker Heartbeat: Waiting for tasks...",
+                        flush=True,
+                    ),
+                    tick_s=IDLE_POLL_S,
+                )
                 continue
             
-            idle_seconds = 0
             headlines = [t['title'] for t in tasks]
             for h in headlines:
                 print(f"Status: EXTRACTING - {h}", flush=True)

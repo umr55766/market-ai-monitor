@@ -1,8 +1,13 @@
 import time
 from app.storage.dedup import NewsStorage
 from app.ai.relevance import RelevanceFilter
+from app.runtime import heartbeat_sleep
 
 def run_relevance_worker():
+    BATCH_SIZE = 5
+    IDLE_POLL_S = 2
+    HEARTBEAT_EVERY_S = 60
+
     storage = NewsStorage()
     relevance_filter = None
     
@@ -14,19 +19,21 @@ def run_relevance_worker():
 
     print("Relevance Worker started...")
 
-    idle_seconds = 0
     while True:
         try:
-            tasks = storage.pop_batch_from_queue("relevance", batch_size=5)
+            tasks = storage.pop_batch_from_queue("relevance", batch_size=BATCH_SIZE)
             if not tasks:
-                idle_seconds += 2
-                if idle_seconds >= 60:
-                    print(f"[{time.ctime()}] Relevance Worker Heartbeat: Waiting for tasks...", flush=True)
-                    idle_seconds = 0
-                time.sleep(2)
+                heartbeat_sleep(
+                    sleep_s=IDLE_POLL_S,
+                    heartbeat_every_s=HEARTBEAT_EVERY_S,
+                    heartbeat=lambda: print(
+                        f"[{time.ctime()}] Relevance Worker Heartbeat: Waiting for tasks...",
+                        flush=True,
+                    ),
+                    tick_s=IDLE_POLL_S,
+                )
                 continue
             
-            idle_seconds = 0
             headlines = [t['title'] for t in tasks]
             for h in headlines:
                 storage.save_headline(h, status="analyzing")

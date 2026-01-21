@@ -3,6 +3,8 @@ from app.market.prices import MarketData
 from app.storage.dedup import NewsStorage
 
 def run_market_worker():
+    POLL_INTERVAL_S = 60
+
     storage = NewsStorage()
     market = MarketData()
     
@@ -17,7 +19,7 @@ def run_market_worker():
                 print(f"  [MARKET] {ticker}: {price}", flush=True)
                 storage.db.save_price(ticker, price)
             
-            time.sleep(60)
+            time.sleep(POLL_INTERVAL_S)
         except Exception as e:
             print(f"Market Worker Error: {e}", flush=True)
             time.sleep(10)

@@ -8,8 +8,12 @@ from app.storage.dedup import NewsStorage
 
 
 def run_anomaly_worker():
+    POLL_INTERVAL_S = 60
+    DETECTOR_THRESHOLD = 0.005  # 0.5% for testing
+    MAX_SENT_ALERT_KEYS = 100
+
     storage = NewsStorage()
-    detector = AnomalyDetector(storage.db, threshold=0.005) # 0.5% for testing
+    detector = AnomalyDetector(storage.db, threshold=DETECTOR_THRESHOLD)
     scorer = SeverityScorer()
     
     try:
@@ -27,7 +31,7 @@ def run_anomaly_worker():
     
     while True:
         try:
-            time.sleep(60) # Run slightly after market worker
+            time.sleep(POLL_INTERVAL_S)  # Run slightly after market worker
             print(f"--- Anomaly Check Started at {time.ctime()} ---", flush=True)
             
             anomalies = detector.detect_anomalies()
@@ -63,7 +67,7 @@ def run_anomaly_worker():
                         
                         if success:
                             sent_alerts.add(alert_key)
-                            if len(sent_alerts) > 100:
+                            if len(sent_alerts) > MAX_SENT_ALERT_KEYS:
                                 sent_alerts.pop()
                     
         except Exception as e:
